@@ -1,12 +1,35 @@
-import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ToastComponent } from './components/toast/toast.component';
+import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component';
+import { InvoiceDetailModalComponent } from './components/invoice-detail-modal/invoice-detail-modal.component';
+import { SidebarComponent } from './components/sidebar/sidebar.component';
+import { HeaderComponent } from './components/header/header.component';
+import { DashboardComponent } from './components/dashboard/dashboard.component';
+import { InvoiceUploadComponent } from './components/invoice-upload/invoice-upload.component';
+import { InvoiceListComponent } from './components/invoice-list/invoice-list.component';
+import { AiAdvisorComponent } from './components/ai-advisor/ai-advisor.component';
+import { UiService } from './services/ui.service';
 
 @Component({
-  imports: [RouterOutlet],
   selector: 'app-root',
-  styleUrl: './app.css',
+  standalone: true,
+  imports: [
+    CommonModule,
+    ToastComponent,
+    ConfirmDialogComponent,
+    InvoiceDetailModalComponent,
+    SidebarComponent,
+    HeaderComponent,
+    DashboardComponent,
+    InvoiceUploadComponent,
+    InvoiceListComponent,
+    AiAdvisorComponent,
+  ],
   templateUrl: './app.html',
+  styleUrl: './app.css',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class App {
-  protected readonly title = signal('FinanceAI');
+  readonly uiService = inject(UiService);
 }
