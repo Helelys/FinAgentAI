@@ -7,7 +7,10 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FinanceService } from '../../services/finance.service';
-import { GeminiService } from '../../services/gemini.service';
+import {
+  AVAILABLE_GEMINI_MODELS,
+  GeminiService,
+} from '../../services/gemini.service';
 import { ChatMessage } from '../../models/invoice.model';
 import {
   formatBRL,
@@ -67,7 +70,7 @@ import {
       <!-- Configuração rápida de API Key (Opcional) -->
       @if (showApiKeyModal()) {
         <div
-          class="p-3 bg-slate-950/90 border-b border-slate-800 flex items-center gap-2 text-xs"
+          class="p-3 bg-slate-950/90 border-b border-slate-800 flex items-center gap-2 text-xs flex-wrap"
         >
           <span class="text-slate-400 shrink-0">Chave Gemini:</span>
           <input
@@ -75,8 +78,17 @@ import {
             [value]="geminiService.apiKey()"
             (input)="onApiKeyChange($event)"
             placeholder="Cole sua GEMINI_API_KEY aqui (opcional)"
-            class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white text-xs focus:outline-none focus:border-indigo-500"
+            class="flex-1 min-w-[180px] bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white text-xs focus:outline-none focus:border-indigo-500"
           />
+          <select
+            [value]="geminiService.selectedModel()"
+            (change)="onModelChange($event)"
+            class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 text-xs focus:outline-none cursor-pointer"
+          >
+            @for (m of availableModels; track m) {
+              <option [value]="m">{{ m }}</option>
+            }
+          </select>
           <button
             type="button"
             (click)="showApiKeyModal.set(false)"
@@ -178,6 +190,7 @@ export class AiAdvisorComponent {
   readonly geminiService = inject(GeminiService);
 
   readonly quickPrompts = this.financeService.quickPrompts;
+  readonly availableModels = AVAILABLE_GEMINI_MODELS;
   readonly showApiKeyModal = signal<boolean>(false);
 
   readonly chatMessages = signal<ChatMessage[]>([
@@ -194,6 +207,11 @@ export class AiAdvisorComponent {
   onApiKeyChange(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
     this.geminiService.setApiKey(value);
+  }
+
+  onModelChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.geminiService.setModel(value);
   }
 
   onChatInputChange(event: Event): void {

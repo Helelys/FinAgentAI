@@ -14,7 +14,10 @@ import {
 } from '@angular/forms';
 import { FinanceService } from '../../services/finance.service';
 import { UiService } from '../../services/ui.service';
-import { GeminiService } from '../../services/gemini.service';
+import {
+  AVAILABLE_GEMINI_MODELS,
+  GeminiService,
+} from '../../services/gemini.service';
 import { Invoice, InvoiceItem } from '../../models/invoice.model';
 
 @Component({
@@ -33,14 +36,103 @@ import { Invoice, InvoiceItem } from '../../models/invoice.model';
             <h3 class="text-base font-bold text-white">
               1. Enviar Fatura ou Extrato
             </h3>
-            <button
-              type="button"
-              (click)="fillExampleInvoice()"
-              class="px-3 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition cursor-pointer"
-            >
-              Testar com Fatura de Exemplo
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                (click)="showApiKeyModal.set(!showApiKeyModal())"
+                class="px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center gap-1.5"
+                [class]="
+                  geminiService.apiKey()
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    : 'bg-amber-500/15 border-amber-500/40 text-amber-300 animate-pulse'
+                "
+              >
+                <span>🔑</span>
+                <span>{{
+                  geminiService.apiKey()
+                    ? 'API Key Salva'
+                    : 'Configurar Chave API'
+                }}</span>
+              </button>
+              <button
+                type="button"
+                (click)="fillExampleInvoice()"
+                class="px-2.5 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition cursor-pointer"
+              >
+                Exemplo
+              </button>
+            </div>
           </div>
+
+          <!-- Banner se a chave não estiver configurada -->
+          @if (!geminiService.apiKey() && !showApiKeyModal()) {
+            <div
+              class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 flex items-center justify-between gap-2"
+            >
+              <div class="flex items-center gap-2">
+                <span class="text-sm">⚠️</span>
+                <span
+                  >Chave Gemini não configurada. Insira sua chave para ativar a
+                  IA.</span
+                >
+              </div>
+              <button
+                type="button"
+                (click)="showApiKeyModal.set(true)"
+                class="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 font-bold hover:bg-amber-500/30 transition cursor-pointer shrink-0"
+              >
+                Inserir Chave
+              </button>
+            </div>
+          }
+
+          <!-- Caixa de Configuração da Chave API -->
+          @if (showApiKeyModal()) {
+            <div
+              class="p-3.5 rounded-xl bg-slate-950 border border-indigo-500/40 space-y-2.5 text-xs"
+            >
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-white flex items-center gap-1.5">
+                  <span>🔑 Chave Gemini API (Google AI Studio)</span>
+                </span>
+                <button
+                  type="button"
+                  (click)="showApiKeyModal.set(false)"
+                  class="text-slate-400 hover:text-white cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+              <input
+                type="password"
+                [value]="geminiService.apiKey()"
+                (input)="onApiKeyChange($event)"
+                placeholder="Cole sua API Key do Google AI Studio (AIzaSy...)"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-indigo-500"
+              />
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-slate-400">Modelo:</span>
+                  <select
+                    [value]="geminiService.selectedModel()"
+                    (change)="onModelChange($event)"
+                    class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 text-xs focus:outline-none cursor-pointer"
+                  >
+                    @for (m of availableModels; track m) {
+                      <option [value]="m">{{ m }}</option>
+                    }
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  (click)="showApiKeyModal.set(false)"
+                  class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition cursor-pointer"
+                >
+                  Salvar
+                </button>
+              </div>
+            </div>
+          }
 
           <!-- Dropzone Arquivo (Imagem ou PDF) -->
           <label
@@ -334,6 +426,10 @@ export class InvoiceUploadComponent {
   readonly geminiService = inject(GeminiService);
 
   readonly categoriesList = this.financeService.categoriesList;
+  readonly availableModels = AVAILABLE_GEMINI_MODELS;
+
+  // Estado Modal API Key
+  readonly showApiKeyModal = signal<boolean>(false);
 
   // Estado Upload
   readonly isDragging = signal<boolean>(false);
@@ -360,6 +456,16 @@ export class InvoiceUploadComponent {
     this.addFormItem();
   }
 
+  onApiKeyChange(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.geminiService.setApiKey(value);
+  }
+
+  onModelChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.geminiService.setModel(value);
+  }
+
   onDragOver(event: DragEvent): void {
     event.preventDefault();
     this.isDragging.set(true);
@@ -380,7 +486,21 @@ export class InvoiceUploadComponent {
 
   private processSelectedFile(file: File): void {
     this.uploadedFileName.set(file.name);
-    this.uploadedFileMime.set(file.type || 'application/octet-stream');
+
+    let mime = file.type || '';
+    const lowerName = file.name.toLowerCase();
+    if (!mime || mime === 'application/octet-stream') {
+      if (lowerName.endsWith('.pdf')) {
+        mime = 'application/pdf';
+      } else if (lowerName.endsWith('.png')) {
+        mime = 'image/png';
+      } else if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
+        mime = 'image/jpeg';
+      } else if (lowerName.endsWith('.webp')) {
+        mime = 'image/webp';
+      }
+    }
+    this.uploadedFileMime.set(mime || (lowerName.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream'));
 
     if (
       file.type === 'text/plain' ||
@@ -399,6 +519,9 @@ export class InvoiceUploadComponent {
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = String(reader.result ?? '');
+      if (dataUrl.includes('data:application/pdf')) {
+        this.uploadedFileMime.set('application/pdf');
+      }
       const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
       this.uploadedFileBase64.set(base64);
     };
@@ -484,6 +607,15 @@ Lançamentos:
       return;
     }
 
+    if (!this.geminiService.apiKey()) {
+      this.showApiKeyModal.set(true);
+      this.uiService.showToast(
+        'Chave da API Gemini não configurada! Insira sua chave acima.',
+        'error'
+      );
+      return;
+    }
+
     this.isExtracting.set(true);
 
     try {
@@ -523,17 +655,29 @@ Lançamentos:
         'Fatura extraída com sucesso pela IA! Revise os itens ao lado e salve.',
         'success'
       );
-    } catch {
-      // Fallback inteligente caso a chave de API não esteja configurada no ambiente local
-      if (text.includes('INTER BLACK')) {
+    } catch (err: any) {
+      if (err?.message === 'CHAVE_NAO_CONFIGURADA') {
+        this.showApiKeyModal.set(true);
+        this.uiService.showToast(
+          'Insira sua chave da API Gemini para utilizar a IA.',
+          'error'
+        );
+      } else if (err?.message === 'CHAVE_INVALIDA') {
+        this.showApiKeyModal.set(true);
+        this.uiService.showToast(
+          'Chave Gemini inválida! Verifique no Google AI Studio.',
+          'error'
+        );
+      } else if (text.includes('INTER BLACK')) {
         this.applyLocalExampleFallback();
         this.uiService.showToast(
-          'Dados estruturados preenchidos (modo local). Revise e salve!',
+          'Dados preenchidos (modo local). Revise e salve!',
           'info'
         );
       } else {
         this.uiService.showToast(
-          'Não foi possível conectar à API Gemini agora. Preencha manualmente ao lado ou use o exemplo.',
+          err?.message ||
+            'Não foi possível conectar à API Gemini. Verifique a chave ou preencha manualmente.',
           'error'
         );
       }
